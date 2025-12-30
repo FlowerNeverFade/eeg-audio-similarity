@@ -56,20 +56,18 @@ This toolkit was validated on two EEG datasets:
 
 | Property | Value |
 |----------|-------|
-| Subjects | 49 (33 used in main analysis) |
-| Channels | 61 active electrodes (+ 2 reference = 63 total in file) |
-| Analysis Channels | 62 (C=62 after re-referencing, excluding EOG) |
-| Amplifier | Brain Products actiCHamp |
-| Sampling Rate | 500 Hz (0.1-200 Hz band) |
+| Channels | 62 (60 EEG + VEOG + Aux5)|
+| Subjects | 49 |
+| Sampling Rate | 500 Hz |
 | Stimulus | 12.4 min audiobook (Alice in Wonderland Ch.1) |
-| Audio Segments | 12 .wav files |
 | Words | 2,130 words across 84 sentences |
 | Format | MATLAB (.mat) for FieldTrip toolbox |
+| Source | https://deepblue.lib.umich.edu/data/concern/data_sets/bg257f92t |
 
 > **Note on Channel Numbers:**
-> - **61 active electrodes**: Original recording (Brain Products actiCHamp)
-> - **62 channels (C=62)**: After average re-referencing and excluding EOG channels (used in paper analysis)
-> - The raw `.mat` files contain 61 EEG channels; preprocessing scripts apply re-referencing
+> - **.mat file contains 62 channels**: 60 EEG electrodes + VEOG + Aux5
+> - **EEG electrodes**: Numbered 1-61 (channel 29 is missing, so 60 actual EEG channels)
+> - **For analysis**: Use channels 1-60 (excluding VEOG and Aux5), or all 60 EEG electrodes after excluding non-EEG channels
 
 #### Dataset Files
 
@@ -106,20 +104,27 @@ import pandas as pd
 from paper_code.preprocessing import segment_eeg_by_sentences
 
 # Load EEG data (FieldTrip format)
-def load_alice_eeg(mat_path):
+def load_alice_eeg(mat_path, eeg_only=True):
     data = scipy.io.loadmat(mat_path)
     raw = data['raw'][0, 0]
-    eeg_data = raw['trial'][0, 0]  # (n_channels, n_samples)
+    eeg_data = raw['trial'][0, 0]  # (62, n_samples)
     fs = float(raw['fsample'][0, 0])  # 500 Hz
-    labels = [str(lbl[0]) for lbl in raw['label']]
+    labels = [str(lbl[0]) for lbl in raw['label'].flatten()]
+    
+    if eeg_only:
+        # Exclude VEOG (channel 61) and Aux5 (channel 62)
+        eeg_data = eeg_data[:60, :]  # Keep only 60 EEG channels
+        labels = labels[:60]
+    
     return eeg_data, fs, labels
 
 # Load alignment table
 alignment = pd.read_csv('AliceChapterOne-EEG.csv')
 
-# Example: Load subject S01
-eeg, fs, channels = load_alice_eeg('S01.mat')
+# Example: Load subject S01 (EEG channels only)
+eeg, fs, channels = load_alice_eeg('S01.mat', eeg_only=True)
 print(f"EEG shape: {eeg.shape}, fs: {fs} Hz, channels: {len(channels)}")
+# Output: EEG shape: (60, 366525), fs: 500.0 Hz, channels: 60
 
 # Segment by sentence
 sentence_segments = {}
@@ -156,12 +161,56 @@ print(f"Using {len(valid_subjects)} subjects: {valid_subjects[:5]}...")
 
 ### Dataset 2: OpenNeuro ds004408
 
+**Source**: OpenNeuro  
+**DOI**: https://doi.org/10.18112/openneuro.ds004408.v1.0.0  
+**Citation**: Broderick, M.P. et al. (2018). Electrophysiological correlates of semantic dissimilarity reflect the comprehension of natural, narrative speech. *Current Biology*.
+
 | Property | Value |
 |----------|-------|
-| Channels | 128 |
+| Channels | 128 EEG (A1-A32, B1-B32, C1-C32, D1-D32) |
+| Subjects | 19 (sub-001 to sub-019) |
+| Runs per Subject | 20 audio segments |
 | Sampling Rate | 512 Hz |
-| Format | BIDS (continuous recording) |
+| Amplifier | BioSemi ActiveTwo 128-channel |
+| Stimulus | "The Old Man and the Sea" audiobook |
+| Format | BIDS / BrainVision (.vhdr/.vmrk/.eeg) |
 | Source | https://openneuro.org/datasets/ds004408 |
+
+> **Note on Channel Numbers:**
+> - **128 EEG channels**: BioSemi 128-channel cap (4 groups: A, B, C, D × 32 channels)
+> - **Some channels marked as bad**: Check `*_channels.tsv` for status per run
+> - **Format**: BIDS-compliant with TextGrid files for word/phoneme timing
+
+#### Dataset Files
+
+| File | Description |
+|------|-------------|
+| `sub-*/eeg/*.vhdr` | EEG data (BrainVision format) |
+| `sub-*/eeg/*_channels.tsv` | Channel status (good/bad) per run |
+| `sub-*/eeg/*_eeg.json` | Recording metadata |
+| `stimuli/*.wav` | Audio segments |
+| `stimuli/*.TextGrid` | Word/phoneme timing (Praat format) |
+| `participants.tsv` | Subject list |
+
+#### Loading Dataset 2
+
+```python
+import mne
+from paper_code.preprocessing import load_bids_eeg
+
+# Load EEG data (BrainVision format via MNE)
+def load_ds004408_eeg(vhdr_path):
+    raw = mne.io.read_raw_brainvision(vhdr_path, preload=True)
+    eeg_data = raw.get_data()  # (128, n_samples)
+    fs = raw.info['sfreq']  # 512 Hz
+    labels = raw.ch_names
+    return eeg_data, fs, labels
+
+# Example: Load subject 001, run 01
+eeg, fs, channels = load_ds004408_eeg('sub-001/eeg/sub-001_task-listening_run-01_eeg.vhdr')
+print(f"EEG shape: {eeg.shape}, fs: {fs} Hz, channels: {len(channels)}")
+# Output: EEG shape: (128, n_samples), fs: 512.0 Hz, channels: 128
+```
 
 #### Preparing ds004408 for Analysis
 
@@ -246,11 +295,12 @@ We provide pre-generated alignment tables for ds004408 (see `data/alignments/`):
 #### Dataset Configuration
 
 ```python
-# Dataset 1: Alice in Wonderland (62ch after preprocessing, 500Hz)
+# Dataset 1: Alice in Wonderland (60 EEG channels, 500Hz)
 ALICE_CONFIG = {
     'name': 'Alice in Wonderland EEG',
-    'n_channels_raw': 61,      # Active electrodes in original recording
-    'n_channels_analysis': 62, # C=62 after re-referencing (paper)
+    'n_channels_file': 62,     # Total channels in .mat file
+    'n_channels_eeg': 60,      # EEG electrodes (1-61, missing 29)
+    'n_channels_other': 2,     # VEOG + Aux5
     'fs': 500,
     'n_subjects': 49,
     'n_valid_subjects': 33,
@@ -266,8 +316,13 @@ ALICE_CONFIG = {
 DS004408_CONFIG = {
     'name': 'OpenNeuro ds004408',
     'n_channels': 128,
+    'n_subjects': 19,
+    'n_runs_per_subject': 20,
     'fs': 512,
-    'format': 'bids',
+    'stimulus': 'The Old Man and the Sea',
+    'amplifier': 'BioSemi ActiveTwo',
+    'format': 'bids_brainvision',
+    'doi': 'https://doi.org/10.18112/openneuro.ds004408.v1.0.0',
     'source': 'https://openneuro.org/datasets/ds004408',
 }
 ```
@@ -344,9 +399,10 @@ paper_code/
 from paper_code.preprocessing import preprocess_eeg, load_alignment_table, segment_eeg_by_sentences
 import numpy as np
 
-# Load raw EEG (62 channels after preprocessing, 500Hz sampling rate)
-# Note: Original recording has 61 active electrodes; after re-referencing = 62 channels
+# Load raw EEG (62 channels in file: 60 EEG + VEOG + Aux5)
 eeg_raw = np.load('subject_01_raw.npy')  # shape: (62, n_samples)
+# Use only EEG channels (first 60, excluding VEOG and Aux5)
+eeg_only = eeg_raw[:60, :]  # shape: (60, n_samples)
 
 # Preprocess: bandpass (0.5-40Hz), notch (50Hz), re-reference
 eeg_clean, bad_channels = preprocess_eeg(eeg_raw, fs=500, 
@@ -397,7 +453,7 @@ from paper_code.preprocessing import align_eeg_to_audio, compute_optimal_lag
 from paper_code.models import load_embeddings
 
 # Load EEG segment and audio embeddings
-eeg = np.load('eeg_segments/sentence_001.npy')  # (62, n_samples) or (61, n_samples)
+eeg = np.load('eeg_segments/sentence_001.npy')  # (60, n_samples) - EEG only
 audio_emb = load_embeddings('embeddings/sentence_001_all_layers.npz', layer_idx=12)
 # audio_emb shape: (T_audio, 1024)
 
@@ -446,8 +502,8 @@ print(f"p-value: {pval:.4f}")
 ```python
 from paper_code.metrics import compute_rdm_vec_batch, rsa_between_rdms_batch
 
-# Process all 62 electrodes at once (C=62 as in paper)
-eeg_batch = torch.randn(62, 100, 50)  # (n_electrodes, time_steps, features)
+# Process all 60 EEG electrodes at once
+eeg_batch = torch.randn(60, 100, 50)  # (n_electrodes, time_steps, features)
 rdm_batch = compute_rdm_vec_batch(eeg_batch)
 
 # Compare all electrodes with audio RDM

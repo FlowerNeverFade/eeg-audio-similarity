@@ -188,23 +188,33 @@ def load_results_csv(csv_path):
     return pd.read_csv(csv_path)
 
 
-def load_alice_eeg(mat_path):
+def load_alice_eeg(mat_path, eeg_only=True):
     """
     Load EEG data from Alice in Wonderland dataset (FieldTrip .mat format).
     
     Args:
         mat_path: str - path to subject .mat file (e.g., 'S01.mat')
+        eeg_only: bool - if True, exclude VEOG and Aux5 channels (default: True)
     
     Returns:
         tuple: (eeg_data, fs, channel_labels, time_range)
             - eeg_data: np.ndarray of shape (n_channels, n_samples)
+              - If eeg_only=True: (60, n_samples) - 60 EEG electrodes
+              - If eeg_only=False: (62, n_samples) - all channels
             - fs: float - sampling frequency (500 Hz)
             - channel_labels: list of channel names
             - time_range: tuple (start_time, end_time) in seconds
     
+    Note:
+        The .mat files contain 62 channels:
+        - Channels 1-60: EEG electrodes (numbered 1-61, channel 29 missing)
+        - Channel 61: VEOG (vertical EOG)
+        - Channel 62: Aux5 (auxiliary)
+    
     Example:
-        >>> eeg, fs, labels, t_range = load_alice_eeg('S01.mat')
-        >>> print(f"EEG: {eeg.shape}, fs: {fs} Hz, duration: {t_range[1]:.1f}s")
+        >>> eeg, fs, labels, t_range = load_alice_eeg('S01.mat', eeg_only=True)
+        >>> print(f"EEG: {eeg.shape}, fs: {fs} Hz")
+        # Output: EEG: (60, 366525), fs: 500.0 Hz
     """
     import scipy.io
     
@@ -212,13 +222,20 @@ def load_alice_eeg(mat_path):
     raw = data['raw'][0, 0]
     
     # Extract EEG data
-    eeg_data = raw['trial'][0, 0]  # (n_channels, n_samples)
+    eeg_data = raw['trial'][0, 0]  # (62, n_samples)
     
     # Sampling frequency
     fs = float(raw['fsample'][0, 0])
     
-    # Channel labels
-    channel_labels = [str(lbl[0]) for lbl in raw['label']]
+    # Channel labels (raw['label'] has shape (62, 1))
+    channel_labels = [str(lbl[0]) for lbl in raw['label'].flatten()]
+    
+    # Exclude non-EEG channels if requested
+    if eeg_only:
+        # Keep only first 60 channels (EEG electrodes)
+        # Excludes VEOG (index 60) and Aux5 (index 61)
+        eeg_data = eeg_data[:60, :]
+        channel_labels = channel_labels[:60]
     
     # Time range
     try:
