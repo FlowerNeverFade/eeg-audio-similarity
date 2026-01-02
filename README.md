@@ -747,18 +747,7 @@ device = setup_gpu(gpu_index=0)
 
 ---
 
-## Citation
 
-If you use this code in your research, please cite:
-
-```bibtex
-@inproceedings{anonymous2024eegaudio,
-  title={Acoustic-EEG Similarity Analysis with Audio Language Models},
-  author={Anonymous},
-  booktitle={Proceedings of ACL},
-  year={2024}
-}
-```
 
 ## License
 
