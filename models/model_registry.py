@@ -134,24 +134,23 @@ SUPPORTED_MODELS: Dict[str, ModelConfig] = {
     ),
     
     # ============================================================
-    # GLM-4-Voice-9B (Whisper encoder output)
-    # Verified: 32 layers (layer_0-31) + final_output, hidden_dim=1280
-    # NOTE: Extracts from Whisper encoder, not GLM transformer!
+    # GLM-4-Voice-9B (ChatGLM architecture)
+    # Config: num_hidden_layers=40, hidden_size=4096
     # ============================================================
     'glm-4-voice-9b': ModelConfig(
         model_name='GLM-4-Voice-9B',
         model_path=f'{DEFAULT_MODEL_BASE_PATH}/glm-4-voice-9b',
         model_type='huggingface',
         architecture='ChatGLMForConditionalGeneration',
-        n_layers=32,  # Verified: Whisper encoder layers (layer_0-31)
-        hidden_dim=1280,  # Verified: Whisper large-v2 d_model
+        n_layers=40,  # From config.json: num_hidden_layers=40
+        hidden_dim=4096,  # From config.json: hidden_size=4096
         sample_rate=16000,
-        frame_shift_ms=20.0,  # 50 steps/sec = 20ms per step
-        description='GLM-4 Voice 9B - extracts Whisper large-v2 encoder representations',
-        extraction_target='audio_encoder',  # NOTE: Extracts from Whisper, not GLM
+        frame_shift_ms=20.0,
+        description='GLM-4 Voice 9B multimodal speech model',
+        extraction_target='llm',
         audio_encoder=AudioEncoderConfig(
             encoder_type='whisper',
-            encoder_layers=32,  # Whisper large-v2
+            encoder_layers=32,
             encoder_dim=1280,
             num_mel_bins=128,
         ),

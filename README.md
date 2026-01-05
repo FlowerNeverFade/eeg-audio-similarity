@@ -637,24 +637,24 @@ print(f"N400: {n400_window.start_ms}-{n400_window.end_ms}ms")
 
 ## Supported Audio Models
 
-We support 12 state-of-the-art audio language models. The table below shows the **extracted embeddings** configuration for each model (verified from actual extracted .npz files):
+We support 12 state-of-the-art audio language models. All models extract **LLM hidden states** (layer-wise representations from the language model decoder). The table below shows configurations verified from actual extracted embeddings:
 
-| Model | Architecture | Layers | Hidden Dim | Extraction Target | Key |
-|-------|--------------|--------|------------|-------------------|-----|
-| Audio-Flamingo-3 | LlavaLlamaModel | 29 | 3584 | Audio Encoder | `audio-flamingo-3` |
-| Baichuan-Audio-Base | OmniForCausalLM | 33 | 1280 | Audio Encoder (Whisper) | `baichuan-audio-base` |
-| Baichuan-Audio-Instruct | OmniForCausalLM | 33 | 1280 | Audio Encoder (Whisper) | `baichuan-audio-instruct` |
-| GLM-4-Voice-9B | ChatGLMForConditionalGeneration | 41 | 4096 | LLM Hidden States | `glm-4-voice-9b` |
-| Granite-Speech-3.3-8B | GraniteSpeechModel | 33 | 4096 | LLM Hidden States | `granite-speech-3.3-8b` |
-| Llama-3.1-8B-Omni | OmniSpeech2SLlamaForCausalLM | 33 | 4096 | LLM Hidden States | `llama-3.1-8b-omni` |
-| MiniCPM-o-2_6 | MiniCPMO | 29 | 3584 | LLM Hidden States | `minicpm-o-2_6` |
-| Qwen2-Audio-7B | Qwen2AudioForConditionalGeneration | 33 | 4096 | LLM Hidden States | `qwen2-audio` |
-| Qwen2-Audio-7B-Instruct | Qwen2AudioForConditionalGeneration | 33 | 4096 | LLM Hidden States | `qwen2-audio-instruct` |
-| SpeechGPT-2.0-preview-7B | MIMOLlamaForCausalLM | 29 | 3584 | LLM Hidden States | `speechgpt` |
-| Ultravox-v0.5 (Llama-3.1-8B) | UltravoxModel | 33 | 4096 | LLM Hidden States | `ultravox-llama3.1-8b` |
-| Ultravox-v0.5 (Llama-3.2-1B) | UltravoxModel | 17 | 2048 | LLM Hidden States | `ultravox-llama3.2-1b` |
+| Model | Layers | Hidden Dim | Key |
+|-------|--------|------------|-----|
+| Audio-Flamingo-3 | 28 | 3584 | `audio-flamingo-3` |
+| Baichuan-Audio-Base | 28 | 3584 | `baichuan-audio-base` |
+| Baichuan-Audio-Instruct | 28 | 3584 | `baichuan-audio-instruct` |
+| GLM-4-Voice-9B | 40 | 4096 | `glm-4-voice-9b` |
+| Granite-Speech-3.3-8B | 40 | 4096 | `granite-speech-3.3-8b` |
+| Llama-3.1-8B-Omni | 32 | 4096 | `llama-3.1-8b-omni` |
+| MiniCPM-o-2_6 | 28 | 3584 | `minicpm-o-2_6` |
+| Qwen2-Audio-7B | 32 | 4096 | `qwen2-audio` |
+| Qwen2-Audio-7B-Instruct | 32 | 4096 | `qwen2-audio-instruct` |
+| SpeechGPT-2.0-preview-7B | 28 | 3584 | `speechgpt` |
+| Ultravox-v0.5 (Llama-3.1-8B) | 32 | 4096 | `ultravox-llama3.1-8b` |
+| Ultravox-v0.5 (Llama-3.2-1B) | 16 | 2048 | `ultravox-llama3.2-1b` |
 
-> **Note**: Layers include embedding layer (layer 0) plus transformer layers. Hidden Dim refers to the dimension of extracted embeddings.
+> **Note**: All models extract LLM hidden states. Layers = number of transformer layers.
 
 ### Model Aliases
 
