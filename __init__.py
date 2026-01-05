@@ -7,16 +7,26 @@ A comprehensive toolkit for analyzing the similarity between EEG neural
 responses and audio language model representations.
 
 Modules:
+    models: Audio LLM loading and inference
     metrics: Similarity metrics (RSA, CKA, distance correlation, etc.)
     features: EEG and audio feature extraction
     visualization: RDM and topography visualization
     analysis: Prosody and TNC analysis
     utils: GPU and data loading utilities
+
+Supported Audio Models (12 models):
+    - Audio-Flamingo-3, Baichuan-Audio (Base/Instruct)
+    - GLM-4-Voice-9B, Granite-Speech-3.3-8B
+    - Llama-3.1-8B-Omni, MiniCPM-o-2_6
+    - Qwen2-Audio-7B (Base/Instruct)
+    - SpeechGPT-2.0-preview-7B
+    - Ultravox-v0.5 (Llama-3.1-8B / Llama-3.2-1B)
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "Anonymous"
 
+from . import models
 from . import metrics
 from . import features
 from . import visualization
@@ -54,8 +64,19 @@ from .utils import (
     load_audio_embeddings,
 )
 
+from .models import (
+    load_audio_model,
+    extract_all_layers,
+    save_embeddings,
+    load_embeddings,
+    get_model_config,
+    list_available_models,
+    SUPPORTED_MODELS,
+)
+
 __all__ = [
     # Submodules
+    'models',
     'metrics',
     'features',
     'visualization',
@@ -80,5 +101,13 @@ __all__ = [
     'setup_gpu',
     'load_eeg_data',
     'load_audio_embeddings',
+    # Models
+    'load_audio_model',
+    'extract_all_layers',
+    'save_embeddings',
+    'load_embeddings',
+    'get_model_config',
+    'list_available_models',
+    'SUPPORTED_MODELS',
 ]
 

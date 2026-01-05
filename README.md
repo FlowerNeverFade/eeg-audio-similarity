@@ -344,10 +344,12 @@ paper_code/
 │   │                                # generate_alignment_from_bids, load_bids_eeg
 │   └── time_alignment.py            # align_eeg_to_audio, resample_to_target_length
 │
-├── models/                           # Audio LLM inference (NEW)
+├── models/                           # Audio LLM inference
 │   ├── __init__.py
-│   ├── model_registry.py            # SUPPORTED_MODELS, get_model_config
-│   └── audio_llm_inference.py       # load_audio_model, extract_hidden_states
+│   ├── model_registry.py            # SUPPORTED_MODELS, ModelConfig, get_model_config
+│   │                                # AudioEncoderConfig, list_available_models
+│   └── audio_llm_inference.py       # load_audio_model, extract_hidden_states,
+│                                    # extract_all_layers, save/load_embeddings
 │
 ├── metrics/                          # Similarity metrics
 │   ├── __init__.py
@@ -429,9 +431,11 @@ for sid, segment in eeg_segments.items():
 from paper_code.models import load_audio_model, extract_all_layers, save_embeddings
 import librosa
 
-# Load audio model (supports: qwen2-audio, salmonn, wavlm-base/large, wav2vec2, hubert, whisper)
-model, processor, config = load_audio_model('wavlm-large', device='cuda')
+# Load audio model (see Supported Audio Models section for full list)
+# Examples: 'qwen2-audio', 'baichuan-audio-base', 'glm-4-voice-9b', 'ultravox-llama3.1-8b'
+model, processor, config = load_audio_model('qwen2-audio', device='cuda')
 print(f"Loaded {config.model_name}: {config.n_layers} layers, {config.hidden_dim}d")
+print(f"Architecture: {config.architecture}")
 
 # Extract embeddings for each sentence
 for audio_file in audio_files:
@@ -439,11 +443,12 @@ for audio_file in audio_files:
     
     # Extract all layer hidden states
     embeddings = extract_all_layers(model, processor, audio, sample_rate=16000)
-    # embeddings = {0: (T, 768), 1: (T, 768), ..., 23: (T, 768)}
+    # embeddings = {0: (T, hidden_dim), 1: (T, hidden_dim), ..., n_layers-1: (T, hidden_dim)}
+    # For Qwen2-Audio: {0: (T, 4096), ..., 32: (T, 4096)} → 33 layers total
     
     # Save to npz
     output_path = f'embeddings/{audio_file.stem}_all_layers.npz'
-    save_embeddings(embeddings, output_path, metadata={'model': 'wavlm-large'})
+    save_embeddings(embeddings, output_path, metadata={'model': config.model_name})
 ```
 
 ### Step 3: Time Alignment (EEG ↔ Audio Embeddings)
@@ -514,12 +519,16 @@ print(f"Mean RSA: {spearman_all.mean():.4f} ± {spearman_all.std():.4f}")
 ### Step 6: Layer-wise Analysis
 
 ```python
-from paper_code.models import load_embeddings
+from paper_code.models import load_embeddings, get_model_config
 from paper_code.visualization import plot_layerwise_comparison
+
+# Get model configuration
+config = get_model_config('qwen2-audio')
+n_layers = config.n_layers  # 33 for Qwen2-Audio (embedding + 32 transformer layers)
 
 # Compute RSA for each layer
 layer_results = []
-for layer_idx in range(24):  # WavLM-Large has 24 layers
+for layer_idx in range(n_layers):
     audio_emb = load_embeddings(npz_path, layer_idx=layer_idx)
     audio_features = reduce_audio_dimensions(audio_emb, n_components=20)
     rdm_audio = compute_rdm_vec(audio_features)
@@ -529,7 +538,7 @@ for layer_idx in range(24):  # WavLM-Large has 24 layers
 # Plot layer profile
 import pandas as pd
 df = pd.DataFrame(layer_results)
-plot_layerwise_comparison({'WavLM-Large': df}, out_path='layer_profile.png')
+plot_layerwise_comparison({'Qwen2-Audio-7B': df}, out_path='layer_profile.png')
 ```
 
 ### Step 7: Time-Window RSA → Scalp Topography (N400 Analysis)
@@ -628,20 +637,55 @@ print(f"N400: {n400_window.start_ms}-{n400_window.end_ms}ms")
 
 ## Supported Audio Models
 
-| Model | Layers | Hidden Dim | Key |
-|-------|--------|------------|-----|
-| Audio-Flamingo-3 | 32 | 4096 | `audio-flamingo-3` |
-| Baichuan-Audio-Base | 32 | 4096 | `baichuan-audio-base` |
-| Baichuan-Audio-Instruct | 32 | 4096 | `baichuan-audio-instruct` |
-| GLM-4-Voice-9B | 40 | 4096 | `glm-4-voice-9b` |
-| Granite-Speech-3.3-8B | 32 | 4096 | `granite-speech-3.3-8b` |
-| Llama-3.1-8B-Omni | 32 | 4096 | `llama-3.1-8b-omni` |
-| MiniCPM-o-2_6 | 28 | 3584 | `minicpm-o-2_6` |
-| Qwen2-Audio-7B | 32 | 4096 | `qwen2-audio` |
-| Qwen2-Audio-7B-Instruct | 32 | 4096 | `qwen2-audio-instruct` |
-| SpeechGPT-2.0-preview-7B | 32 | 4096 | `speechgpt` |
-| Ultravox-v0.5 (Llama-3.1-8B) | 32 | 4096 | `ultravox-llama3.1-8b` |
-| Ultravox-v0.5 (Llama-3.2-1B) | 16 | 2048 | `ultravox-llama3.2-1b` |
+We support 12 state-of-the-art audio language models. The table below shows the **extracted embeddings** configuration for each model (verified from actual extracted .npz files):
+
+| Model | Architecture | Layers | Hidden Dim | Extraction Target | Key |
+|-------|--------------|--------|------------|-------------------|-----|
+| Audio-Flamingo-3 | LlavaLlamaModel | 29 | 3584 | Audio Encoder | `audio-flamingo-3` |
+| Baichuan-Audio-Base | OmniForCausalLM | 33 | 1280 | Audio Encoder (Whisper) | `baichuan-audio-base` |
+| Baichuan-Audio-Instruct | OmniForCausalLM | 33 | 1280 | Audio Encoder (Whisper) | `baichuan-audio-instruct` |
+| GLM-4-Voice-9B | ChatGLMForConditionalGeneration | 41 | 4096 | LLM Hidden States | `glm-4-voice-9b` |
+| Granite-Speech-3.3-8B | GraniteSpeechModel | 33 | 4096 | LLM Hidden States | `granite-speech-3.3-8b` |
+| Llama-3.1-8B-Omni | OmniSpeech2SLlamaForCausalLM | 33 | 4096 | LLM Hidden States | `llama-3.1-8b-omni` |
+| MiniCPM-o-2_6 | MiniCPMO | 29 | 3584 | LLM Hidden States | `minicpm-o-2_6` |
+| Qwen2-Audio-7B | Qwen2AudioForConditionalGeneration | 33 | 4096 | LLM Hidden States | `qwen2-audio` |
+| Qwen2-Audio-7B-Instruct | Qwen2AudioForConditionalGeneration | 33 | 4096 | LLM Hidden States | `qwen2-audio-instruct` |
+| SpeechGPT-2.0-preview-7B | MIMOLlamaForCausalLM | 29 | 3584 | LLM Hidden States | `speechgpt` |
+| Ultravox-v0.5 (Llama-3.1-8B) | UltravoxModel | 33 | 4096 | LLM Hidden States | `ultravox-llama3.1-8b` |
+| Ultravox-v0.5 (Llama-3.2-1B) | UltravoxModel | 17 | 2048 | LLM Hidden States | `ultravox-llama3.2-1b` |
+
+> **Note**: Layers include embedding layer (layer 0) plus transformer layers. Hidden Dim refers to the dimension of extracted embeddings.
+
+### Model Aliases
+
+For convenience, we provide shorter aliases for commonly used models:
+
+| Alias | Target Model |
+|-------|--------------|
+| `qwen2-audio-7b` | `qwen2-audio` |
+| `baichuan-audio` | `baichuan-audio-base` |
+| `glm4-voice` | `glm-4-voice-9b` |
+| `ultravox-8b` | `ultravox-llama3.1-8b` |
+| `ultravox-1b` | `ultravox-llama3.2-1b` |
+| `minicpm` | `minicpm-o-2_6` |
+| `af3` | `audio-flamingo-3` |
+| `granite` | `granite-speech-3.3-8b` |
+
+### Local Model Paths
+
+By default, models are loaded from the path specified by environment variable `AUDIO_LLM_MODEL_PATH`, or `./models` if not set:
+```bash
+export AUDIO_LLM_MODEL_PATH=/path/to/your/models
+```
+
+You can override this by passing `local_path` to `load_audio_model()`:
+
+```python
+model, processor, config = load_audio_model(
+    'qwen2-audio',
+    local_path='/custom/path/to/Qwen2-Audio-7B'
+)
+```
 
 ---
 
