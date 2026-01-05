@@ -361,7 +361,7 @@ paper_code/
 │   ├── rv_coefficient.py           # compute_rv_coefficient
 │   ├── permutation_test.py         # permutation_pvalue
 │   ├── mutual_info.py              # compute_mutual_info_gaussian
-│   ├── kendall.py                  # compute_kendall_tau_b
+│   ├── kendall.py                  # compute_kendall_tau_b, compute_kendall_tau_approx
 │   └── batch_metrics.py            # compute_rdm_vec_batch, rsa_between_rdms_batch
 │
 ├── features/                         # Feature extraction
@@ -744,10 +744,11 @@ model, processor, config = load_audio_model(
 
 ### Kendall's Tau
 
-| Function | Description | Range |
-|----------|-------------|-------|
-| `compute_kendall_tau_b(x, y)` | Kendall's Tau-b (handles ties) | [-1, 1] |
-| `compute_kendall_tau_exact(x, y)` | Exact Tau computation | [-1, 1] |
+| Function | Description | Range | Complexity |
+|----------|-------------|-------|------------|
+| `compute_kendall_tau_b(x, y)` | Exact Kendall's Tau-b (handles ties) | [-1, 1] | O(n²) |
+| `compute_kendall_tau_exact(x, y)` | Alias for `compute_kendall_tau_b` | [-1, 1] | O(n²) |
+| `compute_kendall_tau_approx(x, y)` | Fast approximation (sign concordance) | [-1, 1] | O(n) |
 
 ### Permutation Testing
 
@@ -770,7 +771,8 @@ model, processor, config = load_audio_model(
 | **Dependence** | HSIC (RBF) | `compute_hsic_rbf()` | [0, ∞) | ✅ |
 | **Similarity** | RV Coefficient | `compute_rv_coefficient()` | [0, 1] | ✅ |
 | **Information** | Mutual Info | `compute_mutual_info_gaussian()` | [0, ∞) | ✅ |
-| **Correlation** | Kendall Tau-b | `compute_kendall_tau_b()` | [-1, 1] | ✅ |
+| **Correlation** | Kendall Tau-b (exact) | `compute_kendall_tau_b()` | [-1, 1] | ✅ |
+| **Correlation** | Kendall Tau (approx) | `compute_kendall_tau_approx()` | [-1, 1] | ✅ |
 | **Statistics** | Permutation Test | `permutation_pvalue()` | [0, 1] | ✅ |
 
 ---

@@ -15,7 +15,7 @@ from .hsic import compute_hsic_rbf, compute_hsic_linear
 from .rv_coefficient import compute_rv_coefficient
 from .permutation_test import permutation_pvalue, permutation_test_rsa
 from .mutual_info import compute_mutual_info_gaussian
-from .kendall import compute_kendall_tau_b, compute_kendall_tau_exact
+from .kendall import compute_kendall_tau_b, compute_kendall_tau_exact, compute_kendall_tau_approx
 from .batch_metrics import (
     compute_rdm_vec_batch,
     rsa_between_rdms_batch,
@@ -51,6 +51,7 @@ __all__ = [
     # Kendall
     'compute_kendall_tau_b',
     'compute_kendall_tau_exact',
+    'compute_kendall_tau_approx',
     # Batch Metrics
     'compute_rdm_vec_batch',
     'rsa_between_rdms_batch',
